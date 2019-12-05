@@ -78,9 +78,16 @@
 
 
   #Hyperparameters to tune
+<<<<<<< Updated upstream
   'use_binned_text_diversity': False,
   'num_bin': 8,
   'epsilon': .8,
   'lambda': 1.5
+=======
+  'use_binned_text_diversity': True,
+  'num_bin': 7,
+  'epsilon': 1,
+  'lambda': 1
+>>>>>>> Stashed changes
 
 }
