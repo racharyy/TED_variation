@@ -66,7 +66,7 @@
   #  "momentum": 0.9
   #},
   "trainer_params":{
-    "max_epochs": 10,
+    "max_epochs": 100,
     "max_iter": 15,
     "use_textdiv": True,
     "minibatch_size": 30
