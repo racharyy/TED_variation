@@ -35,12 +35,25 @@ def main():
   parser = argparse.ArgumentParser('Train and Evaluate Neural Networks')
   parser.add_argument('--conf', dest='config_filepath', 
     help='Full path to the configuration file')
+
+  parser.add_argument('--bin', dest='num_bin', type=int, default=None,
+    help='number of bins for diversity')
+  parser.add_argument('--eps', dest='eps',  type=float, default=None,
+    help='epsilon')
+  parser.add_argument('--lam', dest='lam',  type=float, default=None,
+    help='lambda for diversity loss')
+
   args = parser.parse_args()
   
   if args.config_filepath and os.path.exists(args.config_filepath):
     conf = yaml.load(open(args.config_filepath), Loader=yaml.FullLoader)
   else:
     raise Exception('Config file not found')
+
+  if args.num_bin : conf['numb_bin'] = args.num_bin
+  if args.eps : conf['epsilon'] = args.eps
+  if args.lam : conf['lambda'] = args.lam
+
  
     
   exp = Experiment_diversifier(conf)

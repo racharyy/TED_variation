@@ -212,8 +212,15 @@ class Experiment_diversifier(object):
     plt.xlabel("Iteration")
 
     plt.tight_layout()
-    plt.savefig('./Plots/Loss.pdf')
-    plt.show()
+    plt.savefig('./Plots/Loss_{}_{}_{}_{}.pdf'.format(self.config['use_binned_text_diversity'],self.config['num_bin'],
+      self.config['epsilon'], self.config['lambda']))
+    #plt.show()
+    plt.close()
+    
+    # save last element of text_divloss list
+    with open("./Output/text_divloss_last.txt", "w") as text_file:
+      text_file.write("{:.4f} {} {} {} {}".format(text_divloss_list[-1], self.config['use_binned_text_diversity'],
+        self.config['num_bin'],  self.config['epsilon'], self.config['lambda']))
 
     # load best model weights
     self.model.load_state_dict(best_model_wts)
@@ -325,7 +332,8 @@ class Experiment_diversifier(object):
       data_dict_predict['rating'] = op
       self.data_dict_predict = data_dict_predict
       self.data_dict_true = data_dict_true 
-      with open('Output/test_output_'+self.config["input_type"]+'.pkl','wb') as f:
+      with open('Output/test_output_'+self.config["input_type"]+'_{}_{}_{}_{}'.format(self.config['use_binned_text_diversity'],
+  self.config['num_bin'],  self.config['epsilon'], self.config['lambda'])+'.pkl','wb') as f:
         pickle.dump((data_dict_predict,data_dict_true),f) 
 
 
