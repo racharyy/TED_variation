@@ -89,7 +89,7 @@ class Experiment_diversifier(object):
     self.model.eval()
 
     
-    inputs = orig_data['input'][test_idx,:]
+    inputs = orig_data['input'][test_idx,:200]
     labels = orig_data['label'][test_idx,:]
     #print(inputs)
     with torch.set_grad_enabled(False):
@@ -134,7 +134,7 @@ class Experiment_diversifier(object):
           if iter > max_iter:
             break
 
-          inputs = orig_data['input'][a_batch,:]
+          inputs = orig_data['input'][a_batch,:200]
           if self.config['use_binned_text_diversity']:
             text_diversity = orig_data['binned_text_diversity'][a_batch]
           else:
@@ -180,7 +180,7 @@ class Experiment_diversifier(object):
           
 
         epoch_loss = running_loss / (max_iter * minibatch_size)
-        epoch_text_divloss = text_divloss/ (max_iter)
+        epoch_text_divloss = text_divloss/ (max_iter)#* minibatch_size**2)
         print('{} Loss: {:.4f} '.format(phase, epoch_loss))
         if use_textdiv:
           print('{} Loss: {:.4f} '.format('textdiv', epoch_text_divloss))
@@ -244,7 +244,7 @@ class Experiment_diversifier(object):
     '''
     orig_data = {}
     if self.config["input_type"]=='transcript_only':
-    	orig_data["input"] = self.data['transcript']
+    	orig_data["input"] = self.data['input']
     	orig_data["label"] = self.data['rating']
     	orig_data["text_diversity"] = self.data['text_diversity']
  
@@ -298,12 +298,11 @@ class Experiment_diversifier(object):
       data_dict_true['transcript'] = inp[:,:200]
       data_dict_predict['transcript'] = inp[:,:200]
 
-      # data_dict_true['a'] = inp[:,200:207]
-      # data_dict_true['view'] = inp[:,207]
-      # data_dict_true['rating'] = orig_concat_data['label'][test_idx,:].numpy()
+      data_dict_true['a'] = inp[:,200:207]
+      data_dict_true['view'] = inp[:,207]
       
-      # data_dict_predict['a'] = inp[:,200:207]
-      # data_dict_predict['view'] = inp[:,207]
+      data_dict_predict['a'] = inp[:,200:207]
+      data_dict_predict['view'] = inp[:,207]
       
       data_dict_true['rating'] = orig_data['label'][test_idx,:].numpy()
       data_dict_predict['rating'] = op
