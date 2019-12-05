@@ -9,6 +9,7 @@ import sys
 import time
 import copy
 import numpy as np
+import matplotlib.pyplot as plt
 
 import Prediction_model.classification_model as models
 #from deep_fairness.fairyted import Fairytale
@@ -111,7 +112,7 @@ class Experiment_diversifier(object):
 
     best_model_wts = copy.deepcopy(self.model.state_dict())
     text_divloss_list = []
-
+    trainloss_list = []
     for epoch in range(max_epochs):
       
       print('Epoch {}/{}'.format(epoch, max_epochs - 1))
@@ -161,14 +162,14 @@ class Experiment_diversifier(object):
                   #print("hooo=====")
                   # print()
                   #print(text_diversity)
-                  lamb = 1
-                  divloss_list = self.text_divloss(outputs,labels,text_diversity)
+                  
+                  divloss_list = self.text_divloss(outputs,labels,text_diversity,self.config['epsilon'])
                   temp_tdloss = torch.mean(self.relu(divloss_list))
                   # temp_tdloss.register_hook(lambda grad: print("div loss grad ",grad))
                   #print(loss,'before')
-                  loss = loss+ lamb*temp_tdloss
+                  loss = loss+ self.config['lambda']*temp_tdloss
                   #print(loss,'after')
-                  text_divloss = text_divloss + lamb*temp_tdloss
+                  text_divloss = text_divloss + self.config['lambda']*temp_tdloss
                 loss.backward()
                 self.optimizer.step()                
                 
@@ -176,10 +177,11 @@ class Experiment_diversifier(object):
           running_loss += loss.item()
         if phase=='train':
           text_divloss_list.append(text_divloss)
+          trainloss_list.append(running_loss)
 
           
 
-        epoch_loss = running_loss / (max_iter * minibatch_size)
+        epoch_loss = running_loss / (max_iter)
         epoch_text_divloss = text_divloss/ (max_iter)#* minibatch_size**2)
         print('{} Loss: {:.4f} '.format(phase, epoch_loss))
         if use_textdiv:
@@ -197,6 +199,21 @@ class Experiment_diversifier(object):
     self.total_epoch += epoch 
     print('Training complete in {:.0f}m {:.0f}s (total epoch = {})'.format(
       time_elapsed // 60, time_elapsed % 60, self.total_epoch))
+
+    #plot divloss
+    plt.subplot(1,2,1)
+    plt.plot(range(len(text_divloss_list)), text_divloss_list)
+    plt.ylabel("Diversity Loss")
+    plt.xlabel("Iteration")
+
+    plt.subplot(1,2,2)
+    plt.plot(range(len(trainloss_list)), trainloss_list)
+    plt.ylabel("Total Train Loss")
+    plt.xlabel("Iteration")
+
+    plt.tight_layout()
+    plt.savefig('./Plots/Loss.pdf')
+    plt.show()
 
     # load best model weights
     self.model.load_state_dict(best_model_wts)

@@ -364,7 +364,7 @@ def scatter_plot_group(df_predict,df_true):
             pass
             
         plt.tight_layout()
-        plt.savefig('../Plots/'+label+'_predicted.png')
+        plt.savefig('../Plots/'+label+'_predicted.pdf')
 
         plt.close()
         #plt.show()
