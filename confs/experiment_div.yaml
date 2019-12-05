@@ -1,0 +1,83 @@
+{
+  "input_path": "Data/doc2vec",
+  "output_path": "Output/",
+
+  # "trans_dim": 768,
+  # "u_dim": 1,
+  # "view_dim": 7,
+  # "a_dim": 10,
+
+  # "use_simulated_data": False,
+
+
+
+  # "train_causal_model": False,
+  "input_filename": "all_data_dic_200.pkl",
+  "input_type": "transcript_only",###--options are "transcript_and_sensitive", "all"
+  # "causal_model_filename": "trained_trace.pkl",
+  # "fit_params_arguments":{
+  #   "nb_sample": 1000, 
+  #   "check_differences": False, 
+  #   "num_iter": 10000,
+  #   "model_id":1
+  # },
+
+
+
+  # "generate_counterfactual":False,
+  # "num_iter_cf": 10000,
+  # "counterfactual_data_filename": "cf_data.pkl",
+
+  "need_split": False,
+  "split_filename": "split_index.pkl",
+
+
+  "train_neural_network": True,
+  "load_nn_from_file": False,
+  "neural_network_model_filename": "div_trained_nn.model",
+  "gpu_num": -1,
+  "model_type": "SimpleMLP",
+  "model_params": {
+    "in_size": 200,
+    "hidden_size": 400,
+    "out_size": 14,
+    "dropout": 0.1
+  },
+  "loss_function_name": "BCEWithLogitsLoss",
+  "optimizer": "Adam",
+  "optimizer_params": {
+    "weight_decay": 0.0001
+  },
+  "scheduler": "ReduceLROnPlateau",
+  "scheduler_params": {
+    "mode": 'min', 
+    "factor": 0.1,
+     "patience": 10,
+      "verbose": False,
+      "threshold": 0.0001,
+      "threshold_mode": 'rel',
+      "cooldown": 0,
+      "min_lr": 0,
+      "eps": 1e-08
+  },
+  #"optimizer": "SGD",
+  #"optimizer_params": {
+  #  "lr": 0.01,
+  #  "momentum": 0.9
+  #},
+  "trainer_params":{
+    "max_epochs": 150,
+    "max_iter": 15,
+    "use_textdiv": True,
+    "minibatch_size": 30
+  },
+
+
+  "test_neural_network": True,
+  "load_nn_filename": "div_trained_nn.model",
+
+
+  'use_binned_text_diversity': False,
+  'num_bin': 7
+
+}

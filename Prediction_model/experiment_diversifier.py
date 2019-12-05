@@ -10,9 +10,9 @@ import time
 import copy
 import numpy as np
 
-import deep_fairness.classification_model as models
+import Prediction_model.classification_model as models
 #from deep_fairness.fairyted import Fairytale
-from deep_fairness.helper import load_pickle, sample_indices, cvt, make_minibatch, counterfactual_loss, calc_acc, MacOSFile, variation_loss
+from Prediction_model.helper import load_pickle, sample_indices, cvt, make_minibatch, counterfactual_loss, calc_acc, MacOSFile, variation_loss
 
 from sklearn.metrics import classification_report
 from sklearn.metrics import confusion_matrix
@@ -82,7 +82,8 @@ class Experiment_diversifier(object):
     torch.manual_seed(seed)
     torch.cuda.manual_seed(seed)
 
-  
+
+
 
   def test_model(self, orig_data, test_idx):
     self.model.eval()
@@ -134,8 +135,12 @@ class Experiment_diversifier(object):
             break
 
           inputs = orig_data['input'][a_batch,:]
-          text_diversity = orig_data['text_diversity'][a_batch]
+          if self.config['use_binned_text_diversity']:
+            text_diversity = orig_data['binned_text_diversity'][a_batch]
+          else:
+            text_diversity = orig_data['text_diversity'][a_batch]
           labels = orig_data['label'][a_batch,:]
+
 
           # zero the parameter gradients
           self.optimizer.zero_grad()
@@ -156,11 +161,13 @@ class Experiment_diversifier(object):
                   #print("hooo=====")
                   # print()
                   #print(text_diversity)
-                  lamb = 0.002
+                  lamb = 1
                   divloss_list = self.text_divloss(outputs,labels,text_diversity)
                   temp_tdloss = torch.mean(self.relu(divloss_list))
                   # temp_tdloss.register_hook(lambda grad: print("div loss grad ",grad))
+                  #print(loss,'before')
                   loss = loss+ lamb*temp_tdloss
+                  #print(loss,'after')
                   text_divloss = text_divloss + lamb*temp_tdloss
                 loss.backward()
                 self.optimizer.step()                
@@ -173,10 +180,10 @@ class Experiment_diversifier(object):
           
 
         epoch_loss = running_loss / (max_iter * minibatch_size)
-
+        epoch_text_divloss = text_divloss/ (max_iter)
         print('{} Loss: {:.4f} '.format(phase, epoch_loss))
         if use_textdiv:
-          print('{} Loss: {:.4f} '.format('textdiv', text_divloss))
+          print('{} Loss: {:.4f} '.format('textdiv', epoch_text_divloss))
 
         # deep copy the model
         if phase == 'val' and epoch_loss < self.best_loss:
@@ -240,20 +247,35 @@ class Experiment_diversifier(object):
     	orig_data["input"] = self.data['transcript']
     	orig_data["label"] = self.data['rating']
     	orig_data["text_diversity"] = self.data['text_diversity']
-    
-    
-    # Send to appropriate device
-    # ==========================
-    for a_key in orig_data:
-      orig_data[a_key] = torch.from_numpy(orig_data[a_key].astype(np.float32)).to(device=self.device)
-    print("Data Load done")  
+ 
+     
     # Divide into train/dev/test
     # ==========================
     if self.config["need_split"]:
       train_idx, dev_idx, test_idx = self.split(orig_data['input'].shape[0])
+      
     else:
       train_idx, dev_idx, test_idx = self.load_split_index()
+
+    # Binned diversity calculation
+    # ==========================
+    self.min_train_div = min(self.data['text_diversity'][train_idx])
+    self.max_train_div = max(self.data['text_diversity'][train_idx])
+    diff = self.max_train_div - self.min_train_div
+    bin_len = diff/self.config['num_bin']
+    binned_text_diversity = np.array([int(x/bin_len)*bin_len+bin_len/2.0 for x in orig_data['text_diversity']])
+    orig_data['binned_text_diversity'] = binned_text_diversity
     print("Splitting done")
+    
+
+    # Send to appropriate device
+    # ==========================
+    for a_key in orig_data:
+      orig_data[a_key] = torch.from_numpy(orig_data[a_key].astype(np.float32)).to(device=self.device)
+    print("Data Load done") 
+
+
+
     # Neural network training part
     # ============================
     if self.config['train_neural_network']:

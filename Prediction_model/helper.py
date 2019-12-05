@@ -75,14 +75,14 @@ def cartesian_distance(x):
     return np.subtract.outer(x,x)[np.tril_indices(x.shape[0],k=-1)]
 
 
-def variation_loss(predicted_op,labels,text_div,epsilon=0.3):
+def variation_loss(predicted_op,labels,text_div,epsilon=1):
 
     assert(len(predicted_op)==len(text_div))
     n= len(text_div)
     index_ar = range(n)
     # print(torch.abs(predicted_op[0]-predicted_op[1]))
     # print("hoho",torch.norm(predicted_op[0]-predicted_op[1],p=2, dim=1))
-    x =[torch.abs(predicted_op[i]-labels[j])*(epsilon-torch.abs(text_div[i]-text_div[j])) for i, j in it.combinations(index_ar, 2)]
+    x =[torch.abs(predicted_op[i]-predicted_op[j])*(epsilon-torch.abs(text_div[i]-text_div[j])) for i, j in it.combinations(index_ar, 2)]
     #print(x)
     return torch.stack(x)
 

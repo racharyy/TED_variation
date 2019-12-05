@@ -15,8 +15,8 @@ sys.path.insert(0,'../')
 #from deep_fairness.fairyted import Fairytale
 #from deep_fairness.counterfactual_generate import counterfactual_sample
 #from deep_fairness.pymc_model_multivariate import model_fit
-from deep_fairness.helper import load_pickle, dict_to_concat_data
-from deep_fairness.experiment_diversifier import Experiment_diversifier
+from Prediction_model.helper import load_pickle, dict_to_concat_data
+from Prediction_model.experiment_diversifier import Experiment_diversifier
 
 #from dummyfordiscussion import *
 
