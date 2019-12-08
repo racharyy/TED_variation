@@ -56,11 +56,19 @@ class Experiment_diversifier(object):
       self.device = torch.device('gpu:{0}'.format(self.config['gpu_num']))
 
     
-    data_dict_path = os.path.join(self.config['input_path'], self.config['input_filename'])
-    data_dict = load_pickle(data_dict_path)
-    for key in data_dict:
-      data_dict[key] = np.array(data_dict[key])
-    self.data = data_dict
+    text_data_dict_path = os.path.join(self.config['input_path'], self.config['text_input_filename'])
+    text_data_dict = load_pickle(text_data_dict_path)
+    for key in text_data_dict:
+      text_data_dict[key] = np.array(text_data_dict[key])
+    self.text_data = text_data_dict
+
+
+
+    vid_data_dict_path = os.path.join(self.config['input_path'], self.config['vid_input_filename'])
+    vid_data_dict = load_pickle(text_data_dict_path)
+    for key in text_data_dict:
+      vid_data_dict[key] = np.array(vid_data_dict[key])
+    self.vid_data = vid_data_dict
     # if self.config['use_simulated_data']:
     #   self.fairmodel = Fairytale()
     # else:
@@ -90,8 +98,14 @@ class Experiment_diversifier(object):
     self.model.eval()
 
     
-    inputs = orig_data['input'][test_idx,:200]
+    if self.config["input_type"] == "transcript_only":
+      inputs = orig_data['input'][test_idx,:207]
+    elif self.config["input_type"] == "transcript_plus_video":
+      col_list = np.concatenate((range(207),range(208,408)))
+      inputs = orig_data['input'][test_idx,:][:,col_list]
     labels = orig_data['label'][test_idx,:]
+    
+
     #print(inputs)
     with torch.set_grad_enabled(False):
       outputs = self.model(inputs)
@@ -135,7 +149,13 @@ class Experiment_diversifier(object):
           if iter > max_iter:
             break
 
-          inputs = orig_data['input'][a_batch,:200]
+          if self.config["input_type"] == "transcript_only":
+            inputs = orig_data['input'][a_batch,:207]
+          elif self.config["input_type"] == "transcript_plus_video":
+            col_list = np.concatenate((range(207),range(208,408)))
+            inputs = orig_data['input'][a_batch,:][:,col_list]
+
+
           if self.config['use_binned_text_diversity']:
             text_diversity = orig_data['binned_text_diversity'][a_batch]
           else:
@@ -266,12 +286,19 @@ class Experiment_diversifier(object):
     '''
     Runs the experiment
     '''
+    if self.config["create_jointdata"]:
+      new_data_dic = pad(self.vid_data,self.text_data,self.config['num_eigen_tokeep'],self.config['max_vid_len'])
+    else:
+      new_data_dic = load_pickle(self.config['input_path']+'/'+self.config["joint_filename"])
+
+    #Process data for input of the model
+    # ==========================
     orig_data = {}
-    if self.config["input_type"]=='transcript_only':
-    	orig_data["input"] = self.data['input']
-    	orig_data["label"] = self.data['rating']
-    	orig_data["text_diversity"] = self.data['text_diversity']
- 
+    
+    orig_data["input"] = new_data_dic['input']
+    orig_data["label"] = new_data_dic['rating']
+    orig_data["text_diversity"] = new_data_dic['text_diversity']
+     
      
     # Divide into train/dev/test
     # ==========================
@@ -283,8 +310,8 @@ class Experiment_diversifier(object):
 
     # Binned diversity calculation
     # ==========================
-    self.min_train_div = min(self.data['text_diversity'][train_idx])
-    self.max_train_div = max(self.data['text_diversity'][train_idx])
+    self.min_train_div = min(new_data_dic['text_diversity'][train_idx])
+    self.max_train_div = max(new_data_dic['text_diversity'][train_idx])
     diff = self.max_train_div - self.min_train_div
     bin_len = diff/self.config['num_bin']
     binned_text_diversity = np.array([int(x/bin_len)*bin_len+bin_len/2.0 for x in orig_data['text_diversity']])
@@ -307,6 +334,7 @@ class Experiment_diversifier(object):
       nn_filename = os.path.join(self.config['output_path'], self.config['neural_network_model_filename'])
       if self.config['load_nn_from_file']:
         self.load_model(nn_filename)
+      print(orig_data['input'].shape)
       self.train_model(orig_data, train_idx, dev_idx, **self.config['trainer_params'])
       self.save_model(nn_filename)
 
@@ -317,7 +345,7 @@ class Experiment_diversifier(object):
       self.load_model(nn_filename)
       op,average_test_acc = self.test_model(orig_data, test_idx)
       op = op.numpy()
-      inp =  orig_data['input'][test_idx,:].numpy()
+      inp =  new_data_dic['input'][test_idx,:]
       data_dict_predict, data_dict_true = {},{}
       data_dict_true['transcript'] = inp[:,:200]
       data_dict_predict['transcript'] = inp[:,:200]

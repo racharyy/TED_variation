@@ -82,9 +82,48 @@ def variation_loss(predicted_op,labels,text_div,epsilon=1):
     index_ar = range(n)
     # print(torch.abs(predicted_op[0]-predicted_op[1]))
     # print("hoho",torch.norm(predicted_op[0]-predicted_op[1],p=2, dim=1))
-    x =[torch.abs(predicted_op[i]-predicted_op[j])*(epsilon-torch.abs(text_div[i]-text_div[j])) for i, j in it.combinations(index_ar, 2)]
+    x =[torch.pow(predicted_op[i]-predicted_op[j],2)*(epsilon-torch.abs(text_div[i]-text_div[j])) for i, j in it.combinations(index_ar, 2)]
     #print(x)
     return torch.stack(x)
+
+
+def pad(visual_input_dic,transcript_dic,num_eig,max_vid_len):
+
+    new_data_dic = {}
+    visual_input_dic_keys = visual_input_dic.keys()
+    new_data_dic['Video_ID'] = []
+    new_data_dic['input'] = []
+    new_data_dic['rating'] = []
+    new_data_dic['text_diversity'] = [] 
+    new_data_dic['vid_diversity'] = []
+    for k in range(2383):
+
+        vid_id = transcript_dic['Video_ID'][k]
+        if vid_id in visual_input_dic_keys:
+            seg_len = visual_input_dic[vid_id].shape[0]
+            if seg_len<max_vid_len:
+                lst = list(np.concatenate((visual_input_dic[vid_id][:,:num_eig].flatten(),np.zeros((max_vid_len- seg_len)*num_eig))))
+            else:
+                lst = list(visual_input_dic[vid_id][:max_vid_len,:num_eig].flatten())
+
+            new_data_dic['Video_ID'].append(vid_id)
+            new_data_dic['input'] = new_data_dic['input'] + list(transcript_dic['input'][k]) 
+            new_data_dic['input'] = new_data_dic['input']+ lst
+            new_data_dic['rating'] = new_data_dic['rating'] + list(transcript_dic['rating'][k])
+            new_data_dic['text_diversity'].append(transcript_dic['text_diversity'][k])
+    
+    for k in new_data_dic.keys():
+        new_data_dic[k] =  np.array(new_data_dic[k])
+    new_data_dic['rating']=new_data_dic['rating'].reshape((-1,14))
+    new_data_dic['input']=new_data_dic['input'].reshape((-1,208+num_eig*max_vid_len))
+    
+    return new_data_dic
+
+
+
+
+
+
 
 
 
