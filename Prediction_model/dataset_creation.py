@@ -11,15 +11,31 @@ import matplotlib.pyplot as plt
 # data_frame = data_frame.iloc[:,2:]
 
 cf_list = load_pickle('../Output/loss_fn.pkl')
-data_frame_predict, data_frame_true = load_pickle('../Output/test_output_transcript_only.pkl')
-data_frame_predict =convert_dict_to_categorical(data_frame_predict)
-data_frame_true =convert_dict_to_categorical(data_frame_true)
+# data_frame_predict, data_frame_true = load_pickle('../Output/test_output_transcript_only_False_7_1_4.pkl')
+# data_frame_predict_with_tdl, _ = load_pickle('../Output/test_output_transcript_only_True_7_1_4.pkl')
+# data_frame_predict =convert_dict_to_categorical(data_frame_predict)
+# data_frame_true =convert_dict_to_categorical(data_frame_true)
+# data_frame_predict_with_tdl = convert_dict_to_categorical(data_frame_predict_with_tdl)
+
+data_frame_predict, data_frame_true = load_pickle('../Output/Best2/test_output_transcript_plus_video_False_False_7_1_2.pkl')
+data_frame_predict_with_tdl, _ = load_pickle('../Output/Best2/test_output_transcript_plus_video_True_False_7_1_2.pkl')
+data_frame_predict_with_vdl, _ = load_pickle('../Output/Best2/test_output_transcript_plus_video_False_True_7_1_2.pkl')
+data_frame_predict_with_both, _ = load_pickle('../Output/test_output_transcript_plus_video_True_True_7_1_1.5.pkl')
+data_frame_predict = convert_dict_to_categorical(data_frame_predict)
+data_frame_true = convert_dict_to_categorical(data_frame_true)
+data_frame_predict_with_tdl = convert_dict_to_categorical(data_frame_predict_with_tdl)
+data_frame_predict_with_vdl = convert_dict_to_categorical(data_frame_predict_with_vdl)
+data_frame_predict_with_both = convert_dict_to_categorical(data_frame_predict_with_both)
 
 
 # print(data_frame_predict)
 # print(data_frame_true)
 
 rating_names = ['beautiful', 'confusing', 'courageous', 'fascinating', 'funny', 'informative', 'ingenious', 'inspiring', 'jaw-dropping', 'longwinded', 'obnoxious', 'ok', 'persuasive', 'unconvincing']
+
+
+rating_names_sub = ['beautiful', 'fascinating', 'informative', 'jaw-dropping', 'longwinded', 'obnoxious', 'ok',  'unconvincing']
+
 protected_attribute_maps = [{0.0: 'male', 1.0: 'female',2.0:'gender_other'}]
 default_mappings = {
     'label_maps': [{1.0: 1, 0.0: 0}],
@@ -289,12 +305,283 @@ def cf_plot(df_predict,df_true,cf_loss_list):
 
     plt.show()
 
+def plot_fairness_gender(df_predict_with_textdl,df_predict_only,df_true,rating):
+
+    _, _, _, _, pred_prob_mat_with_textdl,truth_prob_mat = find_std_dev_gender(df_predict_with_textdl, df_true)
+    _, _, _, _, pred_prob_mat,truth_prob_mat = find_std_dev_gender(df_predict_only, df_true)
+
+    #print(pred_prob_mat_with_textdl[['gender']].values)
+    spd_pred_dl,di_pred_dl,spd_pred,di_pred,spd_true,di_true = [], [], [], [],[], []
+
+    for k,label in enumerate(rating):
+
+        predicted_probs = pred_prob_mat[[label]].values
+        true_probs = truth_prob_mat[[label]].values
+        predicted_probs_with_textdl = pred_prob_mat_with_textdl[[label]].values
+
+        #print(label,predicted_probs)
+        num_groups = true_probs.shape[0]
+        #print(num_groups,"num of groups")
+        predicted_probs,true_probs,predicted_probs_with_textdl  = predicted_probs.reshape(num_groups,), true_probs.reshape(num_groups,), predicted_probs_with_textdl.reshape(num_groups,)
+
+        #Statistical Parity difference
+        spd_pred_dl.append(abs(predicted_probs_with_textdl[0]-predicted_probs_with_textdl[2]))
+        spd_pred.append(abs(predicted_probs[0]-predicted_probs[2]))
+        spd_true.append(abs(true_probs[0]-true_probs[2]))
+
+        #Disparate Impact
+        di_pred_dl.append(abs(1-predicted_probs_with_textdl[0]/(predicted_probs_with_textdl[2]+0.0001)))
+        di_pred.append(abs(1-predicted_probs[0]/(predicted_probs[2]+0.0001)))
+        di_true.append(abs(1-true_probs[0]/(true_probs[2]+0.0001)))
+
+
+
+
+    xaxis = np.arange(len(rating))
+    width = 0.2
+
+    fig, ax = plt.subplots()
+    rects1 = ax.bar(xaxis , spd_pred_dl, width, label='Predicted with Div loss')
+    #rects2 = ax.bar(xaxis+ width, spd_true, width,label='True')
+    rects3 = ax.bar(xaxis +width, spd_pred, width, label='Predicted without Div loss')
+    
+    #plt.grid()
+    # Add some text for labels, title and custom x-axis tick labels, etc.
+    # ax.set_xlabel('Groups',fontsize=18)
+    # #ax.set_title('ISI for two groups')
+    ax.set_xticks(xaxis+width/2)
+    ax.set_xticklabels(rating,fontsize=14,rotation=45)
+    # ax.invert_yaxis()
+    # plt.xticks(fontsize=18)
+    #ax.legend(fontsize=10)
+    plt.yticks(fontsize=14)
+    plt.title('SPD')
+    plt.tight_layout() 
+    plt.savefig('../Plots/'+'all_fi_spd_gender.pdf')
+    plt.close()
+
+
+
+    fig, ax = plt.subplots()
+    rects1 = ax.bar(xaxis , di_pred_dl, width, label='Predicted with Div loss')
+    #rects2 = ax.bar(xaxis+ width, di_true, width,label='True')
+    rects3 = ax.bar(xaxis + width, di_pred, width, label='Predicted without Div loss')
+    
+   
+    ax.set_xticks(xaxis+width/2)
+    ax.set_xticklabels(rating,fontsize=14,rotation=45)
+    #ax.legend(fontsize=10)
+    plt.yticks(fontsize=14)
+    plt.title('DI')
+    plt.tight_layout() 
+    plt.savefig('../Plots/'+'all_fi_di_gender.pdf')
+    plt.close()
+
+
+
+def plot_fairness_race(df_predict_with_textdl,df_predict_only,df_true,rating):
+
+    _, _, _, _, pred_prob_mat_with_textdl,truth_prob_mat = find_std_dev_race(df_predict_with_textdl, df_true)
+    _, _, _, _, pred_prob_mat,truth_prob_mat = find_std_dev_race(df_predict_only, df_true)
+
+    #print(pred_prob_mat_with_textdl)
+    spd_pred_dl,di_pred_dl,spd_pred,di_pred,spd_true,di_true = [], [], [], [],[], []
+
+    for k,label in enumerate(rating):
+
+
+        predicted_probs = pred_prob_mat[[label]].values
+        true_probs = truth_prob_mat[[label]].values
+        predicted_probs_with_textdl = pred_prob_mat_with_textdl[[label]].values
+
+        #print(label,predicted_probs)
+        num_groups = true_probs.shape[0]
+        #print(num_groups,"num of groups")
+        predicted_probs,true_probs,predicted_probs_with_textdl  = predicted_probs.reshape(num_groups,), true_probs.reshape(num_groups,), predicted_probs_with_textdl.reshape(num_groups,)
+
+        #Statistical Parity difference
+        spd_pred_dl.append(abs(predicted_probs_with_textdl[1]-predicted_probs_with_textdl[3]))
+        spd_pred.append(abs(predicted_probs[1]-predicted_probs[3]))
+        spd_true.append(abs(true_probs[1]-true_probs[3]))
+
+        #Disparate Impact
+        di_pred_dl.append(abs(1-predicted_probs_with_textdl[1]/(predicted_probs_with_textdl[3]+0.0001)))
+        di_pred.append(abs(1-predicted_probs[1]/(predicted_probs[3]+0.0001)))
+        di_true.append(abs(1-true_probs[1]/(true_probs[3]+0.0001)))
+
+
+
+
+    xaxis = np.arange(len(rating))
+    width = 0.2
+
+    fig, ax = plt.subplots()
+    rects1 = ax.bar(xaxis , spd_pred_dl, width, label='Predicted with Div loss')
+    #rects2 = ax.bar(xaxis+ width, spd_true, width,label='True')
+    rects3 = ax.bar(xaxis + width, spd_pred, width, label='Predicted without Div loss')
+    
+    #plt.grid()
+    # Add some text for labels, title and custom x-axis tick labels, etc.
+    # ax.set_xlabel('Groups',fontsize=18)
+    # #ax.set_title('ISI for two groups')
+    ax.set_xticks(xaxis+width/2)
+    ax.set_xticklabels(rating,fontsize=14,rotation=45)
+    # ax.invert_yaxis()
+    # plt.xticks(fontsize=18)
+    #ax.legend(fontsize=10)
+    plt.yticks(fontsize=14)
+    plt.title('SPD')
+    plt.tight_layout() 
+    plt.savefig('../Plots/'+'all_fi_spd_race.pdf')
+    plt.close()
+
+
+
+    fig, ax = plt.subplots()
+    rects1 = ax.bar(xaxis , di_pred_dl, width, label='Predicted with HEM loss')
+    #rects2 = ax.bar(xaxis+ width, di_true, width,label='True')
+    rects3 = ax.bar(xaxis + width, di_pred, width, label='Predicted without HEM loss')
+    
+    #plt.grid()
+    # Add some text for labels, title and custom x-axis tick labels, etc.
+    # ax.set_xlabel('Groups',fontsize=18)
+    # #ax.set_title('ISI for two groups')
+    # ax.set_yticks(xaxis)
+    # ax.set_yticklabels(labels,fontsize=18)
+    ax.set_xticks(xaxis+width/2)
+    ax.set_xticklabels(rating,fontsize=14,rotation=45)
+    # ax.invert_yaxis()
+    plt.yticks(fontsize=14)
+    #ax.legend(fontsize=10)
+    plt.title('DI')
+    plt.tight_layout() 
+    plt.savefig('../Plots/'+'all_fi_di_race.pdf')
+    plt.close()
+
+
+
+
+def fairness_list_race(df_predict_with_textdl,df_predict_only,df_true,rating):
+
+    _, _, _, _, pred_prob_mat_with_textdl,truth_prob_mat = find_std_dev_race(df_predict_with_textdl, df_true)
+    _, _, _, _, pred_prob_mat,truth_prob_mat = find_std_dev_race(df_predict_only, df_true)
+
+    #print(pred_prob_mat_with_textdl)
+    spd_pred_dl,di_pred_dl,spd_pred,di_pred,spd_true,di_true = [], [], [], [],[], []
+
+    for k,label in enumerate(rating):
+
+
+        predicted_probs = pred_prob_mat[[label]].values
+        true_probs = truth_prob_mat[[label]].values
+        predicted_probs_with_textdl = pred_prob_mat_with_textdl[[label]].values
+
+        #print(label,predicted_probs)
+        num_groups = true_probs.shape[0]
+        #print(num_groups,"num of groups")
+        predicted_probs,true_probs,predicted_probs_with_textdl  = predicted_probs.reshape(num_groups,), true_probs.reshape(num_groups,), predicted_probs_with_textdl.reshape(num_groups,)
+
+        #Statistical Parity difference
+        spd_pred_dl.append(abs(predicted_probs_with_textdl[1]-predicted_probs_with_textdl[3]))
+        spd_pred.append(abs(predicted_probs[1]-predicted_probs[3]))
+        spd_true.append(abs(true_probs[1]-true_probs[3]))
+
+        #Disparate Impact
+        di_pred_dl.append(abs(1-predicted_probs_with_textdl[1]/(predicted_probs_with_textdl[3]+0.0001)))
+        di_pred.append(abs(1-predicted_probs[1]/(predicted_probs[3]+0.0001)))
+        di_true.append(abs(1-true_probs[1]/(true_probs[3]+0.0001)))
+
+
+    return spd_pred_dl,di_pred_dl,spd_pred,di_pred,spd_true,di_true
+
+
+def fairness_list_gender(df_predict_with_textdl,df_predict_only,df_true,rating):
+
+    _, _, _, _, pred_prob_mat_with_textdl,truth_prob_mat = find_std_dev_gender(df_predict_with_textdl, df_true)
+    _, _, _, _, pred_prob_mat,truth_prob_mat = find_std_dev_gender(df_predict_only, df_true)
+
+    #print(pred_prob_mat_with_textdl[['gender']].values)
+    spd_pred_dl,di_pred_dl,spd_pred,di_pred,spd_true,di_true = [], [], [], [],[], []
+
+    for k,label in enumerate(rating):
+
+        predicted_probs = pred_prob_mat[[label]].values
+        true_probs = truth_prob_mat[[label]].values
+        predicted_probs_with_textdl = pred_prob_mat_with_textdl[[label]].values
+
+        #print(label,predicted_probs)
+        num_groups = true_probs.shape[0]
+        #print(num_groups,"num of groups")
+        predicted_probs,true_probs,predicted_probs_with_textdl  = predicted_probs.reshape(num_groups,), true_probs.reshape(num_groups,), predicted_probs_with_textdl.reshape(num_groups,)
+
+        #Statistical Parity difference
+        spd_pred_dl.append(abs(predicted_probs_with_textdl[0]-predicted_probs_with_textdl[2]))
+        spd_pred.append(abs(predicted_probs[0]-predicted_probs[2]))
+        spd_true.append(abs(true_probs[0]-true_probs[2]))
+
+        #Disparate Impact
+        di_pred_dl.append(abs(1-predicted_probs_with_textdl[0]/(predicted_probs_with_textdl[2]+0.0001)))
+        di_pred.append(abs(1-predicted_probs[0]/(predicted_probs[2]+0.0001)))
+        di_true.append(abs(1-true_probs[0]/(true_probs[2]+0.0001)))
+
+
+    return spd_pred_dl,di_pred_dl,spd_pred,di_pred,spd_true,di_true
+
+
+def plot_allthings(pred_tdl,pred_vdl,pred,pred_both,rating,metric='SPD',sens='race'):
+
+    xaxis = np.arange(len(rating))
+    width = 0.2
+
+    fig, ax = plt.subplots()
+    rects1 = ax.bar(xaxis, pred_both, width,label='With HEM', color='#D9B98D')
+    rects2 = ax.bar(xaxis + width, pred, width, label='Without HEM', color='#6F485E')    
+    # rects3 = ax.bar(xaxis + width+width, pred_tdl, width, label='Text HEM',color='#2E473C')
+    # rects4 = ax.bar(xaxis + width+width+width, pred, width, label='Without HEM',color='#6F485E')
+    
+    ax.set_xticks(xaxis+width/2)
+    ax.set_xticklabels(rating,fontsize=14,rotation=45)
+  
+    plt.legend()
+
+    plt.yticks(fontsize=14)
+    plt.title(metric)
+    plt.tight_layout() 
+    plt.savefig('../Plots/'+'all_'+metric+'_'+sens+'.pdf')
+    plt.close()
+
+
+
+
+spd_pred_tdl,di_pred_tdl,spd_pred,di_pred,_,_ = fairness_list_gender(data_frame_predict_with_tdl,data_frame_predict, data_frame_true,rating_names)
+spd_pred_vdl,di_pred_vdl,spd_pred,di_pred,_,_ = fairness_list_gender(data_frame_predict_with_vdl,data_frame_predict, data_frame_true,rating_names)
+spd_pred_both,di_pred_both,spd_pred,di_pred,_,_ = fairness_list_gender(data_frame_predict_with_both,data_frame_predict, data_frame_true,rating_names)
+
+print(spd_pred)
+print('')
+print(spd_pred_both)
+
+plot_allthings(spd_pred_tdl,spd_pred_vdl,spd_pred,spd_pred_both,rating_names,metric='SPD',sens='gender')
+
+spd_pred_tdl,di_pred_tdl,spd_pred,di_pred,_,_ = fairness_list_race(data_frame_predict_with_tdl,data_frame_predict, data_frame_true,rating_names)
+spd_pred_vdl,di_pred_vdl,spd_pred,di_pred,_,_ = fairness_list_race(data_frame_predict_with_vdl,data_frame_predict, data_frame_true,rating_names)
+spd_pred_both,di_pred_both,spd_pred,di_pred,_,_ = fairness_list_race(data_frame_predict_with_both,data_frame_predict, data_frame_true,rating_names)
+
+print(spd_pred)
+print('')
+print(spd_pred_both)
+
+plot_allthings(spd_pred_tdl,spd_pred_vdl,spd_pred,spd_pred_both,rating_names,metric='SPD',sens='race')
+
+
+
+
 
 def scatter_plot_group(df_predict,df_true):
 
     pred_std, truth_std, pred_mean, truth_mean, pred_prob_mat,truth_prob_mat = find_std_dev(df_predict, df_true)
 
-    for k,label in enumerate(['courageous']):#enumerate(rating_names):
+    for k,label in enumerate(rating_names):
 
         predicted_probs = pred_prob_mat[[label]].values
         print(predicted_probs)
@@ -394,8 +681,10 @@ def plot_cv(df_predict,df_true):
 
 #cf_plot(data_frame_predict, data_frame_true,cf_list)
 #plot_using_aif(data_frame_predict, data_frame_true)
+#plot_fairness(data_frame_predict_with_tdl,data_frame_predict, data_frame_true)
+# plot_fairness_gender(data_frame_predict_with_tdl,data_frame_predict, data_frame_true,rating_names_sub)
+# plot_fairness_race(data_frame_predict_with_tdl,data_frame_predict, data_frame_true,rating_names_sub)
 
-scatter_plot_group(data_frame_predict, data_frame_true)
 #plot_cv(data_frame_predict, data_frame_true)
 
 # plt.xlim(0,40)

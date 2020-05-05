@@ -264,6 +264,48 @@ def find_std_dev(pred_df, true_df):
     return pred_std, truth_std, pred_mean, truth_mean, pred_prob_mat,truth_prob_mat
 
 
+def find_std_dev_gender(pred_df, true_df):
+    # input: dataframes created by convert_dict_to_categorical containing 14 rating category columns
+    temp_pred = pred_df[['gender','race', 'beautiful', 'confusing',
+                              'courageous', 'fascinating', 'funny', 'informative', 'ingenious',
+                              'inspiring', 'jaw-dropping', 'longwinded', 'obnoxious', 'ok',
+                              'persuasive', 'unconvincing']]
+    temp_true = true_df[['gender','race', 'beautiful', 'confusing',
+                              'courageous', 'fascinating', 'funny', 'informative', 'ingenious',
+                              'inspiring', 'jaw-dropping', 'longwinded', 'obnoxious', 'ok',
+                              'persuasive', 'unconvincing']]
+    
+    pred_prob_mat = temp_pred.groupby(['gender']).mean()
+    truth_prob_mat = temp_true.groupby(['gender']).mean()
+
+    pred_std, truth_std = pred_prob_mat.std().values, truth_prob_mat.std().values
+    pred_mean, truth_mean = pred_prob_mat.mean().values, truth_prob_mat.mean().values
+    
+
+
+    return pred_std, truth_std, pred_mean, truth_mean, pred_prob_mat,truth_prob_mat
+
+def find_std_dev_race(pred_df, true_df):
+    # input: dataframes created by convert_dict_to_categorical containing 14 rating category columns
+    temp_pred = pred_df[['gender','race', 'beautiful', 'confusing',
+                              'courageous', 'fascinating', 'funny', 'informative', 'ingenious',
+                              'inspiring', 'jaw-dropping', 'longwinded', 'obnoxious', 'ok',
+                              'persuasive', 'unconvincing']]
+    temp_true = true_df[['gender','race', 'beautiful', 'confusing',
+                              'courageous', 'fascinating', 'funny', 'informative', 'ingenious',
+                              'inspiring', 'jaw-dropping', 'longwinded', 'obnoxious', 'ok',
+                              'persuasive', 'unconvincing']]
+    
+    pred_prob_mat = temp_pred.groupby(['race']).mean()
+    truth_prob_mat = temp_true.groupby(['race']).mean()
+
+    pred_std, truth_std = pred_prob_mat.std().values, truth_prob_mat.std().values
+    pred_mean, truth_mean = pred_prob_mat.mean().values, truth_prob_mat.mean().values
+    
+
+
+    return pred_std, truth_std, pred_mean, truth_mean, pred_prob_mat,truth_prob_mat
+
 
 
 

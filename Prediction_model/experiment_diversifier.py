@@ -13,7 +13,7 @@ import matplotlib.pyplot as plt
 
 import Prediction_model.classification_model as models
 #from deep_fairness.fairyted import Fairytale
-from Prediction_model.helper import load_pickle, sample_indices, cvt, make_minibatch, counterfactual_loss, calc_acc, MacOSFile, variation_loss
+from Prediction_model.helper import load_pickle, sample_indices, cvt, make_minibatch, counterfactual_loss, calc_acc, MacOSFile, variation_loss, pad
 
 from sklearn.metrics import classification_report
 from sklearn.metrics import confusion_matrix
@@ -84,6 +84,7 @@ class Experiment_diversifier(object):
     self.relu = nn.ReLU()
     #self.cf_loss = counterfactual_loss
     self.text_divloss = variation_loss
+    self.vid_divloss = variation_loss
 
   def set_random_seed(self):      
     seed = self.config['seed']
@@ -103,6 +104,9 @@ class Experiment_diversifier(object):
     elif self.config["input_type"] == "transcript_plus_video":
       col_list = np.concatenate((range(207),range(208,408)))
       inputs = orig_data['input'][test_idx,:][:,col_list]
+    elif self.config["input_type"] == "video_only":
+      col_list = np.concatenate((range(200,207),range(208,408)))
+      inputs = orig_data['input'][test_idx,:][:,col_list]
     labels = orig_data['label'][test_idx,:]
     
 
@@ -114,11 +118,11 @@ class Experiment_diversifier(object):
     average_test_acc = np.mean(total_acc.numpy(),axis=0)
     print("Test Accuracy is :",average_test_acc)
     print("Model Accuracy: ",np.mean(average_test_acc))
-    return x,average_test_acc
+    return x,average_test_acc,outputs
 
 
   def train_model(self, orig_data, train_idx, dev_idx, 
-    max_epochs=10, max_iter=10, use_textdiv=False, minibatch_size=10):
+    max_epochs=10, max_iter=10, use_textdiv=False, use_viddiv=False,minibatch_size=10):
 
 
     
@@ -126,6 +130,7 @@ class Experiment_diversifier(object):
 
     best_model_wts = copy.deepcopy(self.model.state_dict())
     text_divloss_list = []
+    vid_divloss_list = []
     trainloss_list = []
     for epoch in range(max_epochs):
       
@@ -143,6 +148,7 @@ class Experiment_diversifier(object):
 
         running_loss = 0.0
         text_divloss = 0
+        vid_divloss = 0
         # Iterate over data.
         for iter, a_batch in enumerate(make_minibatch(indices, minibatch_size)):
           
@@ -154,12 +160,15 @@ class Experiment_diversifier(object):
           elif self.config["input_type"] == "transcript_plus_video":
             col_list = np.concatenate((range(207),range(208,408)))
             inputs = orig_data['input'][a_batch,:][:,col_list]
-
+          elif self.config["input_type"] == "video_only":
+            col_list = np.concatenate((range(200,207),range(208,408)))
+            inputs = orig_data['input'][a_batch,:][:,col_list]
 
           if self.config['use_binned_text_diversity']:
             text_diversity = orig_data['binned_text_diversity'][a_batch]
           else:
             text_diversity = orig_data['text_diversity'][a_batch]
+          vid_diversity = orig_data['vid_diversity'][a_batch]
           labels = orig_data['label'][a_batch,:]
 
 
@@ -190,6 +199,19 @@ class Experiment_diversifier(object):
                   loss = loss+ self.config['lambda']*temp_tdloss
                   #print(loss,'after')
                   text_divloss = text_divloss + self.config['lambda']*temp_tdloss
+
+                if use_viddiv:
+                  #print("hooo=====")
+                  # print()
+                  #print(text_diversity)
+                  
+                  divloss_list = self.vid_divloss(outputs,labels,vid_diversity,self.config['epsilon'])
+                  temp_tdloss = torch.mean(self.relu(divloss_list))
+                  # temp_tdloss.register_hook(lambda grad: print("div loss grad ",grad))
+                  #print(loss,'before')
+                  loss = loss+ self.config['lambda']*temp_tdloss
+                  #print(loss,'after')
+                  vid_divloss = vid_divloss + self.config['lambda']*temp_tdloss
                 loss.backward()
                 self.optimizer.step()                
                 
@@ -197,15 +219,19 @@ class Experiment_diversifier(object):
           running_loss += loss.item()
         if phase=='train':
           text_divloss_list.append(text_divloss)
+          vid_divloss_list.append(vid_divloss)
           trainloss_list.append(running_loss)
 
           
 
         epoch_loss = running_loss / (max_iter)
         epoch_text_divloss = text_divloss/ (max_iter)#* minibatch_size**2)
+        epoch_vid_divloss = vid_divloss/ (max_iter)
         print('{} Loss: {:.4f} '.format(phase, epoch_loss))
         if use_textdiv:
           print('{} Loss: {:.4f} '.format('textdiv', epoch_text_divloss))
+        if use_viddiv:
+          print('{} Loss: {:.4f} '.format('viddiv', epoch_vid_divloss))
 
         # deep copy the model
         if phase == 'val' and epoch_loss < self.best_loss:
@@ -221,25 +247,27 @@ class Experiment_diversifier(object):
       time_elapsed // 60, time_elapsed % 60, self.total_epoch))
 
     #plot divloss
-    plt.subplot(1,2,1)
-    plt.plot(range(len(text_divloss_list)), text_divloss_list)
-    plt.ylabel("Diversity Loss")
-    plt.xlabel("Iteration")
-
-    plt.subplot(1,2,2)
-    plt.plot(range(len(trainloss_list)), trainloss_list)
-    plt.ylabel("Total Train Loss")
+    #plt.subplot(1,3,1)
+    if use_textdiv:
+      plt.plot(range(len(text_divloss_list)), text_divloss_list,label='Verbal HEM loss')
+    
+    if use_viddiv:
+      plt.plot(range(len(vid_divloss_list)), vid_divloss_list,label='Non-verbal HEM loss')
+    
+    plt.plot(range(len(trainloss_list)), trainloss_list,label="Total Train Loss")
+    plt.legend()
+    plt.ylabel("Loss")
     plt.xlabel("Iteration")
 
     plt.tight_layout()
-    plt.savefig('./Plots/Loss_{}_{}_{}_{}.pdf'.format(self.config['use_binned_text_diversity'],self.config['num_bin'],
+    plt.savefig('./Plots/Loss_{}_{}_{}_{}_{}.pdf'.format(self.config["trainer_params"]["use_textdiv"],self.config["trainer_params"]["use_viddiv"],self.config['num_bin'],
       self.config['epsilon'], self.config['lambda']))
     #plt.show()
     plt.close()
     
     # save last element of text_divloss list
     with open("./Output/text_divloss_last.txt", "w") as text_file:
-      text_file.write("{:.4f} {} {} {} {}".format(text_divloss_list[-1], self.config['use_binned_text_diversity'],
+      text_file.write("{:.4f} {} {} {} {} {}".format(text_divloss_list[-1], self.config["trainer_params"]["use_textdiv"],self.config["trainer_params"]["use_viddiv"],
         self.config['num_bin'],  self.config['epsilon'], self.config['lambda']))
 
     # load best model weights
@@ -298,7 +326,7 @@ class Experiment_diversifier(object):
     orig_data["input"] = new_data_dic['input']
     orig_data["label"] = new_data_dic['rating']
     orig_data["text_diversity"] = new_data_dic['text_diversity']
-     
+    orig_data["vid_diversity"] = new_data_dic['vid_diversity'] 
      
     # Divide into train/dev/test
     # ==========================
@@ -343,7 +371,7 @@ class Experiment_diversifier(object):
     if self.config['test_neural_network']:
       nn_filename = os.path.join(self.config['output_path'], self.config['load_nn_filename'])
       self.load_model(nn_filename)
-      op,average_test_acc = self.test_model(orig_data, test_idx)
+      op,average_test_acc, un_norm_op = self.test_model(orig_data, test_idx)
       op = op.numpy()
       inp =  new_data_dic['input'][test_idx,:]
       data_dict_predict, data_dict_true = {},{}
@@ -358,9 +386,13 @@ class Experiment_diversifier(object):
       
       data_dict_true['rating'] = orig_data['label'][test_idx,:].numpy()
       data_dict_predict['rating'] = op
+
+      m = nn.Sigmoid()
+
+      data_dict_predict['un_norm_op'] = m(un_norm_op)
       self.data_dict_predict = data_dict_predict
       self.data_dict_true = data_dict_true 
-      with open('Output/test_output_'+self.config["input_type"]+'_{}_{}_{}_{}'.format(self.config['use_binned_text_diversity'],
+      with open('Output/test_output_'+self.config["input_type"]+'_{}_{}_{}_{}_{}'.format(self.config["trainer_params"]["use_textdiv"],self.config["trainer_params"]["use_viddiv"],
   self.config['num_bin'],  self.config['epsilon'], self.config['lambda'])+'.pkl','wb') as f:
         pickle.dump((data_dict_predict,data_dict_true),f) 
 

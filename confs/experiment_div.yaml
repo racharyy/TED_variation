@@ -15,7 +15,7 @@
   "text_input_filename": "all_data_dic_200.pkl",
   "vid_input_filename": "tid_vs_segments_eigen_values.pkl",
   "joint_filename": 'joint_data_dic.pkl',
-  "input_type": "transcript_plus_video",###--options are "transcript_and_sensitive", "all", "transcript_only", "transcript_plus_video"
+  "input_type": "transcript_plus_video",###--options are "transcript_and_sensitive", "all", "transcript_only", "transcript_plus_video", "video_only"
   # "causal_model_filename": "trained_trace.pkl",
   # "fit_params_arguments":{
   #   "nb_sample": 1000, 
@@ -41,7 +41,7 @@
   "model_type": "SimpleMLP",
   "model_params": {
     "in_size": 407,
-    "hidden_size": 800,
+    "hidden_size": 400,
     "out_size": 14,
     "dropout": 0.1
   },
@@ -68,9 +68,10 @@
   #  "momentum": 0.9
   #},
   "trainer_params":{
-    "max_epochs": 100,
+    "max_epochs": 50,
     "max_iter": 15,
     "use_textdiv": True,
+    "use_viddiv": True,
     "minibatch_size": 30
   },
 
@@ -83,7 +84,7 @@
   'use_binned_text_diversity': False,
   'num_bin': 7,
   'epsilon': 1,
-  'lambda': 4,
+  'lambda': 1.5,
   'num_eigen_tokeep': 2,
   'max_vid_len': 100
 
